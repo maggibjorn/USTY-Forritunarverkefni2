@@ -2,6 +2,7 @@ package com.ru.usty.scheduling;
 
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.Semaphore;
 
 import com.ru.usty.scheduling.process.ProcessExecution;
 
@@ -17,10 +18,14 @@ public class Scheduler {
 	
 	public Queue<Integer> readyQueue;
 	public static boolean someoneRunning;
+	public long systemTime;
 	
 	public Integer currentRunningProcessID;
 	public static Scheduler scheduler;
-	Thread roundRobinTimeSlicerThread;
+	public Thread roundRobinTimeSlicerThread;
+	public int quantumRR;
+	public boolean timerMayDie;
+	public Semaphore switchMutex = null;
 
 	/**
 	 * DO NOT CHANGE DEFINITION OF OPERATION
@@ -60,15 +65,27 @@ public class Scheduler {
 			/**
 			 * Add your policy specific initialization code here (if needed)
 			 */
-			readyQueue = new LinkedList<Integer>();
+			this.readyQueue = new LinkedList<Integer>();
 			someoneRunning = false;
+			this.timerMayDie = false;
+			this.quantumRR = quantum;
+			switchMutex = new Semaphore(1);
 			
 			// Create new thread for timer
 			if (this.roundRobinTimeSlicerThread != null && this.roundRobinTimeSlicerThread.isAlive()) {
-				this.roundRobinTimeSlicerThread.interrupt();
-			}
-			this.roundRobinTimeSlicerThread = new Thread(new RoundRobinTimeSlicer(quantum));
-			roundRobinTimeSlicerThread.start();
+				// Need to reset timer for Round robin protocol because the timer thread already exists
+				this.timerMayDie = true;
+				try {
+					this.roundRobinTimeSlicerThread.join();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				this.timerMayDie = false;
+			} 
+			this.roundRobinTimeSlicerThread = new Thread(new RoundRobinTimeSlicer());
+			this.roundRobinTimeSlicerThread.start();
+			
 			break;
 		case SPN:	//Shortest process next
 			System.out.println("Starting new scheduling task: Shortest process next");
@@ -110,16 +127,27 @@ public class Scheduler {
 		/**
 		 * Add scheduling code here
 		 */
-		this.readyQueue.add(processID);
-		
+		if (this.switchMutex != null) {
+			try {
+				this.switchMutex.acquire();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		System.out.println("Process arrived -- : " + processID);
+		this.readyQueue.add(processID);	
 		if (!someoneRunning) {
-			someoneRunning = !someoneRunning;	// Now there is a process running on the processor
 			Integer nextProcessIDToRun = this.readyQueue.remove();
 			currentRunningProcessID = nextProcessIDToRun;
-			System.out.println(currentRunningProcessID);
+			
 			this.processExecution.switchToProcess(nextProcessIDToRun);
+			someoneRunning = !someoneRunning;	// Now there is a process running on the processor
+			this.systemTime = System.currentTimeMillis();
 		}
-
+		if (this.switchMutex != null) {
+			this.switchMutex.release();
+		}
 	}
 
 	/**
@@ -130,15 +158,28 @@ public class Scheduler {
 		/**
 		 * Add scheduling code here
 		 */
+		if (this.switchMutex != null) {
+			try {
+				this.switchMutex.acquire();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
 		if (!this.readyQueue.isEmpty()) {
 			// The queue is not empty and there is a process waiting for the processor
 			Integer nextProcessIDToRun = this.readyQueue.remove();
+			
 			currentRunningProcessID = nextProcessIDToRun;
-			System.out.println("Hello from process finished");
 			this.processExecution.switchToProcess(nextProcessIDToRun);
+			this.systemTime = System.currentTimeMillis();
+			System.out.println("Process has left: " + processID);
 		} else {
 			// No process on queue
 			someoneRunning = false;
+		}
+		if (this.switchMutex != null) {
+			this.switchMutex.release();
 		}
 
 	}
