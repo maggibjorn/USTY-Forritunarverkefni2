@@ -1,6 +1,9 @@
 package com.ru.usty.scheduling;
 
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedList;
+import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.concurrent.Semaphore;
 
@@ -26,6 +29,7 @@ public class Scheduler {
 	public int quantumRR;
 	public boolean timerMayDie;
 	public Semaphore switchMutex = null;
+	int c = 0;
 
 	/**
 	 * DO NOT CHANGE DEFINITION OF OPERATION
@@ -41,6 +45,7 @@ public class Scheduler {
 	/**
 	 * DO NOT CHANGE DEFINITION OF OPERATION
 	 */
+	@SuppressWarnings("unchecked")
 	public void startScheduling(Policy policy, int quantum) {
 
 		this.policy = policy;
@@ -92,6 +97,10 @@ public class Scheduler {
 			/**
 			 * Add your policy specific initialization code here (if needed)
 			 */
+			Comparator<Integer> com = new CompareSPN();
+			this.readyQueue = new PriorityQueue<Integer>(com);
+			someoneRunning = false;
+			
 			break;
 		case SRT:	//Shortest remaining time
 			System.out.println("Starting new scheduling task: Shortest remaining time");
@@ -135,8 +144,9 @@ public class Scheduler {
 				e.printStackTrace();
 			}
 		}
-		System.out.println("Process arrived -- : " + processID);
-		this.readyQueue.add(processID);	
+
+		this.readyQueue.add(processID);
+			
 		if (!someoneRunning) {
 			Integer nextProcessIDToRun = this.readyQueue.remove();
 			currentRunningProcessID = nextProcessIDToRun;
@@ -168,12 +178,10 @@ public class Scheduler {
 		}
 		if (!this.readyQueue.isEmpty()) {
 			// The queue is not empty and there is a process waiting for the processor
-			Integer nextProcessIDToRun = this.readyQueue.remove();
-			
-			currentRunningProcessID = nextProcessIDToRun;
-			this.processExecution.switchToProcess(nextProcessIDToRun);
+			Integer nextProcess = this.readyQueue.remove();
+			currentRunningProcessID = nextProcess;
+			this.processExecution.switchToProcess(nextProcess);
 			this.systemTime = System.currentTimeMillis();
-			System.out.println("Process has left: " + processID);
 		} else {
 			// No process on queue
 			someoneRunning = false;
