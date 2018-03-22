@@ -97,6 +97,18 @@ public class Scheduler {
 			/**
 			 * Add your policy specific initialization code here (if needed)
 			 */
+			if (this.roundRobinTimeSlicerThread != null && this.roundRobinTimeSlicerThread.isAlive()) {
+				// Need to reset timer for Round robin protocol because the timer thread already exists
+				this.timerMayDie = true;
+				try {
+					this.roundRobinTimeSlicerThread.join();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				this.timerMayDie = false;
+			} 
+			
 			Comparator<Integer> com = new CompareSPN();
 			this.readyQueue = new PriorityQueue<Integer>(com);
 			someoneRunning = false;
