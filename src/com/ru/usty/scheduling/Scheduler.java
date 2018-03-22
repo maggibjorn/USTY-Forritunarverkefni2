@@ -247,7 +247,6 @@ public class Scheduler {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			
 			if (!this.readyQueue.isEmpty()) {
 				// The queue is not empty and there is a process waiting for the processor
 				currentRunningProcessID = this.readyQueue.remove();

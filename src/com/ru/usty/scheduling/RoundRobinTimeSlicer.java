@@ -40,26 +40,25 @@ public class RoundRobinTimeSlicer implements Runnable {
 			// There is a process on the processor, need to time slice it
 			if (!Scheduler.scheduler.readyQueue.isEmpty()) {
 				// If the ready queue isn't empty the time slicer swaps running processes on processor
-				System.out.println("----Entering from time slicer----");
-				System.out.println(Scheduler.scheduler.readyQueue);
-				
 				try {
-					Scheduler.scheduler.processExecution.getProcessInfo(Scheduler.scheduler.currentRunningProcessID);
+					long a = Scheduler.scheduler.processExecution.getProcessInfo(Scheduler.scheduler.currentRunningProcessID).totalServiceTime - 
+					Scheduler.scheduler.processExecution.getProcessInfo(Scheduler.scheduler.currentRunningProcessID).elapsedExecutionTime;
+					if (a <= 1) {
+						// This is only done to prevent deadlock
+						// A process with less than a ms to go is actually done and the visualization class has called processFinishied 
+						// and is waiting for the mutex
+						Scheduler.scheduler.switchMutex.release();
+						return;
+					}
 				} catch (NullPointerException e) {
-					System.out.println("**************************************************FIXING OCCURS**************************************************");
 					Scheduler.scheduler.switchMutex.release();
 					return;
 				}
 				
 				Scheduler.scheduler.readyQueue.add(Scheduler.scheduler.currentRunningProcessID);
 				Scheduler.scheduler.currentRunningProcessID = Scheduler.scheduler.readyQueue.remove();
-				
-				
 				Scheduler.scheduler.processExecution.switchToProcess(Scheduler.scheduler.currentRunningProcessID);
-				Scheduler.scheduler.systemTime = System.currentTimeMillis();
-				System.out.println(Scheduler.scheduler.readyQueue);
-				System.out.println("----Leaving from time slicer----");
-				
+				Scheduler.scheduler.systemTime = System.currentTimeMillis();		
 			}	
 		}
 		Scheduler.scheduler.switchMutex.release();
