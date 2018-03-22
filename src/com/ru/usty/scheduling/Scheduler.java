@@ -148,10 +148,9 @@ public class Scheduler {
 		this.readyQueue.add(processID);
 			
 		if (!someoneRunning) {
-			Integer nextProcessIDToRun = this.readyQueue.remove();
-			currentRunningProcessID = nextProcessIDToRun;
+			currentRunningProcessID = this.readyQueue.remove();
 			
-			this.processExecution.switchToProcess(nextProcessIDToRun);
+			this.processExecution.switchToProcess(currentRunningProcessID);
 			someoneRunning = !someoneRunning;	// Now there is a process running on the processor
 			this.systemTime = System.currentTimeMillis();
 		}
@@ -176,16 +175,31 @@ public class Scheduler {
 				e.printStackTrace();
 			}
 		}
+		if (processID != currentRunningProcessID) {
+			System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+			System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+			System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+			System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+			System.out.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+			System.out.println("Correct: " + processID + "----" + "currentRunningProcessID " + currentRunningProcessID);
+			
+		}
 		if (!this.readyQueue.isEmpty()) {
+			System.out.println("*****Entering process finished*****");
+			System.out.println(this.readyQueue);
 			// The queue is not empty and there is a process waiting for the processor
-			Integer nextProcess = this.readyQueue.remove();
-			currentRunningProcessID = nextProcess;
-			this.processExecution.switchToProcess(nextProcess);
+			currentRunningProcessID = this.readyQueue.remove();
+			this.processExecution.switchToProcess(currentRunningProcessID);
 			this.systemTime = System.currentTimeMillis();
+			
+			System.out.println("Process leaves: " + processID);
+			System.out.println("Next process: " + currentRunningProcessID);
+			System.out.println(this.readyQueue);
 		} else {
 			// No process on queue
 			someoneRunning = false;
 		}
+		System.out.println("*****Leaving process finished*****");
 		if (this.switchMutex != null) {
 			this.switchMutex.release();
 		}
