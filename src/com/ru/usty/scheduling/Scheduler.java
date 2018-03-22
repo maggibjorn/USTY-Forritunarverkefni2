@@ -28,8 +28,8 @@ public class Scheduler {
 	public Thread roundRobinTimeSlicerThread;
 	public int quantumRR;
 	public boolean timerMayDie;
-	public Semaphore switchMutex = null;
-	int c = 0;
+	public Semaphore switchMutex;
+
 
 	/**
 	 * DO NOT CHANGE DEFINITION OF OPERATION
@@ -119,6 +119,10 @@ public class Scheduler {
 			/**
 			 * Add your policy specific initialization code here (if needed)
 			 */
+			
+			Comparator<Integer> comSRT = new CompareSPN();	// Fair to use the comparator for SPN because SRT uses the same compare to sort the queue
+			this.readyQueue = new PriorityQueue<Integer>(comSRT);
+			someoneRunning = false;
 			break;
 		case HRRN:	//Highest response ratio next
 			System.out.println("Starting new scheduling task: Highest response ratio next");
@@ -144,62 +148,107 @@ public class Scheduler {
 	 * DO NOT CHANGE DEFINITION OF OPERATION
 	 */
 	public void processAdded(int processID) {
-
-		/**
-		 * Add scheduling code here
-		 */
-		if (this.switchMutex != null) {
+		switch(this.policy) {
+		case FCFS:	//First-come-first-served
+			this.readyQueue.add(processID);		
+			if (!someoneRunning) {
+				currentRunningProcessID = this.readyQueue.remove();
+				this.processExecution.switchToProcess(currentRunningProcessID);
+				someoneRunning = !someoneRunning;	// Now there is a process running on the processor
+				this.systemTime = System.currentTimeMillis();
+			}
+			break;
+		case RR:	//Round robin
 			try {
 				this.switchMutex.acquire();
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-		}
-
-		this.readyQueue.add(processID);
 			
-		if (!someoneRunning) {
-			currentRunningProcessID = this.readyQueue.remove();
+			this.readyQueue.add(processID);	
+			if (!someoneRunning) {
+				currentRunningProcessID = this.readyQueue.remove();
+				
+				this.processExecution.switchToProcess(currentRunningProcessID);
+				someoneRunning = !someoneRunning;	// Now there is a process running on the processor
+				this.systemTime = System.currentTimeMillis();
+			}
 			
-			this.processExecution.switchToProcess(currentRunningProcessID);
-			someoneRunning = !someoneRunning;	// Now there is a process running on the processor
-			this.systemTime = System.currentTimeMillis();
-		}
-		if (this.switchMutex != null) {
 			this.switchMutex.release();
+			break;
+		case SPN:	//Shortest process next
+			this.readyQueue.add(processID);		
+			if (!someoneRunning) {
+				currentRunningProcessID = this.readyQueue.remove();
+				this.processExecution.switchToProcess(currentRunningProcessID);
+				someoneRunning = !someoneRunning;	// Now there is a process running on the processor
+				this.systemTime = System.currentTimeMillis();
+			}
+			break;
+		case SRT:	//Shortest remaining time
+			break;
+		case HRRN:	//Highest response ratio next
+			break;
+		case FB:	//Feedback
+			break;
 		}
+	
 	}
 
 	/**
 	 * DO NOT CHANGE DEFINITION OF OPERATION
 	 */
 	public void processFinished(int processID) {
-
-		/**
-		 * Add scheduling code here
-		 */
-		if (this.switchMutex != null) {
+		switch(this.policy) {
+		case FCFS:	//First-come-first-served
+			if (!this.readyQueue.isEmpty()) {
+				// The queue is not empty and there is a process waiting for the processor
+				currentRunningProcessID = this.readyQueue.remove();
+				this.processExecution.switchToProcess(currentRunningProcessID);
+				this.systemTime = System.currentTimeMillis();
+			} else {
+				// No process on queue
+				someoneRunning = false;
+			}
+			break;
+		case RR:	//Round robin
 			try {
 				this.switchMutex.acquire();
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-		}
-		
-		if (!this.readyQueue.isEmpty()) {
-			// The queue is not empty and there is a process waiting for the processor
-			currentRunningProcessID = this.readyQueue.remove();
-			this.processExecution.switchToProcess(currentRunningProcessID);
-			this.systemTime = System.currentTimeMillis();
-		} else {
-			// No process on queue
-			someoneRunning = false;
-		}
-		if (this.switchMutex != null) {
+			
+			if (!this.readyQueue.isEmpty()) {
+				// The queue is not empty and there is a process waiting for the processor
+				currentRunningProcessID = this.readyQueue.remove();
+				this.processExecution.switchToProcess(currentRunningProcessID);
+				this.systemTime = System.currentTimeMillis();
+			} else {
+				// No process on queue
+				someoneRunning = false;
+			}
 			this.switchMutex.release();
+			
+			break;
+		case SPN:	//Shortest process next
+			if (!this.readyQueue.isEmpty()) {
+				// The queue is not empty and there is a process waiting for the processor
+				currentRunningProcessID = this.readyQueue.remove();
+				this.processExecution.switchToProcess(currentRunningProcessID);
+				this.systemTime = System.currentTimeMillis();
+			} else {
+				// No process on queue
+				someoneRunning = false;
+			}
+			break;
+		case SRT:	//Shortest remaining time
+			break;
+		case HRRN:	//Highest response ratio next
+			break;
+		case FB:	//Feedback
+			break;
 		}
-
 	}
 }
