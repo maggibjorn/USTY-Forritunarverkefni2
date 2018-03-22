@@ -120,7 +120,7 @@ public class Scheduler {
 			 * Add your policy specific initialization code here (if needed)
 			 */
 			
-			Comparator<Integer> comSRT = new CompareSPN();	// Fair to use the comparator for SPN because SRT uses the same compare to sort the queue
+			Comparator<Integer> comSRT = new CompareSRT();	
 			this.readyQueue = new PriorityQueue<Integer>(comSRT);
 			someoneRunning = false;
 			break;
@@ -155,7 +155,6 @@ public class Scheduler {
 				currentRunningProcessID = this.readyQueue.remove();
 				this.processExecution.switchToProcess(currentRunningProcessID);
 				someoneRunning = !someoneRunning;	// Now there is a process running on the processor
-				this.systemTime = System.currentTimeMillis();
 			}
 			break;
 		case RR:	//Round robin
@@ -183,10 +182,27 @@ public class Scheduler {
 				currentRunningProcessID = this.readyQueue.remove();
 				this.processExecution.switchToProcess(currentRunningProcessID);
 				someoneRunning = !someoneRunning;	// Now there is a process running on the processor
-				this.systemTime = System.currentTimeMillis();
 			}
 			break;
 		case SRT:	//Shortest remaining time
+		
+				if (!someoneRunning) {
+					someoneRunning = !someoneRunning;
+					currentRunningProcessID = processID;
+					this.processExecution.switchToProcess(currentRunningProcessID);
+				} else {
+					long x = this.processExecution.getProcessInfo(processID).totalServiceTime;
+					long y = this.processExecution.getProcessInfo(currentRunningProcessID).totalServiceTime;
+					long z = this.processExecution.getProcessInfo(currentRunningProcessID).elapsedExecutionTime;
+					if (x < (y-z)) {
+						this.readyQueue.add(currentRunningProcessID);
+						currentRunningProcessID = processID;
+						this.processExecution.switchToProcess(currentRunningProcessID);
+					} else {
+						this.readyQueue.add(processID);
+					}
+				}	
+		
 			break;
 		case HRRN:	//Highest response ratio next
 			break;
@@ -206,7 +222,6 @@ public class Scheduler {
 				// The queue is not empty and there is a process waiting for the processor
 				currentRunningProcessID = this.readyQueue.remove();
 				this.processExecution.switchToProcess(currentRunningProcessID);
-				this.systemTime = System.currentTimeMillis();
 			} else {
 				// No process on queue
 				someoneRunning = false;
@@ -237,13 +252,20 @@ public class Scheduler {
 				// The queue is not empty and there is a process waiting for the processor
 				currentRunningProcessID = this.readyQueue.remove();
 				this.processExecution.switchToProcess(currentRunningProcessID);
-				this.systemTime = System.currentTimeMillis();
 			} else {
 				// No process on queue
 				someoneRunning = false;
 			}
 			break;
 		case SRT:	//Shortest remaining time
+			if (!this.readyQueue.isEmpty()) {
+				// The queue is not empty and there is a process waiting for the processor
+				currentRunningProcessID = this.readyQueue.remove();
+				this.processExecution.switchToProcess(currentRunningProcessID);
+			} else {
+				// No process on queue
+				someoneRunning = false;
+			}
 			break;
 		case HRRN:	//Highest response ratio next
 			break;
@@ -251,4 +273,5 @@ public class Scheduler {
 			break;
 		}
 	}
+	
 }
