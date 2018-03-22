@@ -20,6 +20,7 @@ public class Scheduler {
 	 */
 	
 	public Queue<Integer> readyQueue;
+	public Queue<Integer> tempQueue;
 	public static boolean someoneRunning;
 	public long systemTime;
 	
@@ -29,7 +30,8 @@ public class Scheduler {
 	public int quantumRR;
 	public boolean timerMayDie;
 	public Semaphore switchMutex;
-
+	
+	int dummie = 0;
 
 	/**
 	 * DO NOT CHANGE DEFINITION OF OPERATION
@@ -119,7 +121,6 @@ public class Scheduler {
 			/**
 			 * Add your policy specific initialization code here (if needed)
 			 */
-			
 			Comparator<Integer> comSRT = new CompareSRT();	
 			this.readyQueue = new PriorityQueue<Integer>(comSRT);
 			someoneRunning = false;
@@ -129,6 +130,11 @@ public class Scheduler {
 			/**
 			 * Add your policy specific initialization code here (if needed)
 			 */
+			Comparator<Integer> comHRRN = new CompareHRRN();
+			this.readyQueue = new PriorityQueue<Integer>(comHRRN);
+			this.tempQueue = new LinkedList<Integer>();
+			
+			someoneRunning = false;
 			break;
 		case FB:	//Feedback
 			System.out.println("Starting new scheduling task: Feedback, quantum = " + quantum);
@@ -205,6 +211,13 @@ public class Scheduler {
 		
 			break;
 		case HRRN:	//Highest response ratio next
+			if (!someoneRunning) {
+				someoneRunning = !someoneRunning;
+				currentRunningProcessID = processID;
+				this.processExecution.switchToProcess(currentRunningProcessID);
+			} else {
+				this.readyQueue.add(processID);
+			}	
 			break;
 		case FB:	//Feedback
 			break;
@@ -268,9 +281,28 @@ public class Scheduler {
 			}
 			break;
 		case HRRN:	//Highest response ratio next
+			if (!this.readyQueue.isEmpty()) {
+				// The queue is not empty and there is a process waiting for the processor
+				this.recalculateHRRNQueue();	// Need to recalculate all ratios
+				currentRunningProcessID = this.readyQueue.remove();	
+				this.processExecution.switchToProcess(currentRunningProcessID);
+			} else {
+				someoneRunning = false;
+			}
 			break;
 		case FB:	//Feedback
 			break;
+		}
+	}
+	
+	// Only used in HRRN protocol
+	private void recalculateHRRNQueue() {
+		while (!this.readyQueue.isEmpty()) {
+			this.tempQueue.add(this.readyQueue.remove());
+		}
+		while (!this.tempQueue.isEmpty()) {
+			this.readyQueue.add(this.tempQueue.remove());
+			
 		}
 	}
 	
