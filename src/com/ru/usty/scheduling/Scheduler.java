@@ -18,20 +18,24 @@ public class Scheduler {
 	/**
 	 * Add any objects and variables here (if needed)
 	 */
+	public final int NUMBER_OF_FEEDBACK_QUEUES = 7;
 	
 	public Queue<Integer> readyQueue;
 	public Queue<Integer> tempQueue;
+	public Queue<Integer>[] feedbackQueues;
 	public static boolean someoneRunning;
 	public long systemTime;
-	
 	public Integer currentRunningProcessID;
+	public int currentQueueOfRunningProcess;	// Used in FB 
 	public static Scheduler scheduler;
 	public Thread roundRobinTimeSlicerThread;
+	public Thread feedbackTimeSlicerThread;
 	public int quantumRR;
+	public int quantumFeedback;
 	public boolean timerMayDie;
 	public Semaphore switchMutex;
 	
-	int dummie = 0;
+
 
 	/**
 	 * DO NOT CHANGE DEFINITION OF OPERATION
@@ -141,6 +145,32 @@ public class Scheduler {
 			/**
 			 * Add your policy specific initialization code here (if needed)
 			 */
+			someoneRunning = false;
+			this.timerMayDie = false;
+			this.quantumFeedback = quantum;
+			switchMutex = new Semaphore(1);
+			
+			this.feedbackQueues = new Queue[NUMBER_OF_FEEDBACK_QUEUES];
+			for (int i = 0; i < NUMBER_OF_FEEDBACK_QUEUES; i++) {
+				// Need to initialize all queues
+				this.feedbackQueues[i] = new LinkedList<Integer>(); 
+			}
+			
+			// Create new thread for timer
+			if (this.feedbackTimeSlicerThread != null && this.feedbackTimeSlicerThread.isAlive()) {
+				// Need to reset timer for Round robin protocol because the timer thread already exists
+				this.timerMayDie = true;
+				try {
+					this.feedbackTimeSlicerThread.join();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				this.timerMayDie = false;
+			} 
+			this.feedbackTimeSlicerThread = new Thread(new FeedbackTimeSlicer());
+			this.feedbackTimeSlicerThread.start();
+			
 			break;
 		}
 
@@ -220,6 +250,23 @@ public class Scheduler {
 			}	
 			break;
 		case FB:	//Feedback
+			try {
+				this.switchMutex.acquire();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+				
+			if (!someoneRunning) {
+				someoneRunning = !someoneRunning;
+				currentRunningProcessID = processID;
+				this.currentQueueOfRunningProcess = 0;
+				this.processExecution.switchToProcess(currentRunningProcessID);	
+				this.systemTime = System.currentTimeMillis();
+			} else {
+				this.feedbackQueues[0].add(processID);	// When a process is spawned it goes to the queue with the highest priority
+			}
+			this.switchMutex.release();
 			break;
 		}
 	
@@ -290,6 +337,30 @@ public class Scheduler {
 			}
 			break;
 		case FB:	//Feedback
+			try {
+				this.switchMutex.acquire();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}		
+			boolean processSwapped = false;
+			for (int i = 0; i < NUMBER_OF_FEEDBACK_QUEUES; i++) {
+				if (!this.feedbackQueues[i].isEmpty()) {
+					processSwapped = true;
+					int currentQueueNumber = i;
+					
+					this.currentQueueOfRunningProcess = currentQueueNumber;													// Updating current queue number
+					this.currentRunningProcessID = this.feedbackQueues[this.currentQueueOfRunningProcess].remove();			// Fetching next process to run
+					this.processExecution.switchToProcess(this.currentRunningProcessID);	
+					this.systemTime = System.currentTimeMillis();
+					break;
+				} 
+			}
+			if (!processSwapped) {
+				// All queues are empty
+				someoneRunning = false;
+			}
+			this.switchMutex.release();
 			break;
 		}
 	}
